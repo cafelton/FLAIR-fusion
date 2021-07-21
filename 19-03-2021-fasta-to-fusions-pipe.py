@@ -24,16 +24,16 @@ def binarySearch(arr, t):
 
 #Removing all repetitive region references
 
-parser = argparse.ArgumentParser(description='fusion caller parse options', usage='python 8-7-flair-to-fusions-pipe.py -i flair.aligned.bam -o outputPrefix -b buffer -a path to annotations')
+parser = argparse.ArgumentParser(description='fusion caller parse options', usage='python3 19-03-2021-flair-to-fusions-pipe.py -g genome.fa -t anno.gtf -a anno-short.gtf -f path-to-flair -r reads.fastq')
 parser.add_argument('-o', '--output', action='store', dest='o', default=date.today().strftime("%d-%m-%Y"), help='output file name base (default: date)')
 parser.add_argument('-r', '--reads', action='store', dest='r', default="", help='.fa or fq file')
 parser.add_argument('-m', '--bedFile', action='store', dest='m', default="", help='.bed file')
-parser.add_argument('-f', '--flair', action='store', dest='f', default="/private/home/cafelton/flair-new/flair.py", help='flair path')
+parser.add_argument('-f', '--flair', action='store', dest='f', default="../flair.py", help='flair path')
 parser.add_argument('-g', '--genome', action='store', dest='g', default="/private/groups/brookslab/reference_sequence/GRCh38.primary_assembly.genome.fa", help='path to genome')
 #parser.add_argument('-x', '--minimap', action='store', dest='x', default="/private/groups/brookslab/bin/minimap2", help='path to minimap')
 parser.add_argument('-k', '--remapSize', action='store', dest='k', default=0, type=int, help='size of area to remap - only remaps if this is specified')
 parser.add_argument('-t', '--transcriptome', action='store', dest='t', default="/private/groups/brookslab/reference_annotations/gencode.v37.annotation.gtf", help='path to transcriptome')
-parser.add_argument('-e', '--dupGenes', action='store', dest='e', default="/private/groups/brookslab/reference_annotations/human_duplicated_genes.tsv", help='path to dup genes list')
+parser.add_argument('-e', '--dupGenes', action='store', dest='e', default="human_duplicated_genes.tsv", help='path to dup genes list')
 parser.add_argument('-b', '--buffer', action='store', dest='b', default=50000, help='length of buffer for combining nearby regions')
 parser.add_argument('-a', '--anno', action='store', dest='a', default='/private/groups/brookslab/cafelton/id-fusions-new/gencodeGenesShort.gtf', help='path to anno.gtf')
 parser.add_argument('-p', '--bedProcess', action='store_true', dest='p', help='whether to take .bam and convert to .bed and process (True = assume existing processed .bam)')
