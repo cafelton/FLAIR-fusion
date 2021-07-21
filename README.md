@@ -1,6 +1,6 @@
 # FLAIR-fusion
 
-Requires FLAIR (https://github.com/BrooksLabUCSC/flair), and python numpy
+Requires FLAIR (https://github.com/BrooksLabUCSC/flair), python3 and numpy
 
 minimap2 and bedtools must be in your path
 
@@ -9,7 +9,7 @@ First: run makeShortAnno with
 python makeShortAnno.py /other-folder/gene-annotation.gtf
 
 
-Required
+Required (run in python3)
 
 
 -o --output   output prefix (added to fastq prefix) default-today's date
