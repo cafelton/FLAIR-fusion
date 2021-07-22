@@ -8,11 +8,12 @@ First: run makeShortAnno with
 
 python makeShortAnno.py /other-folder/gene-annotation.gtf
 
+Next: run the full pipeline with
+
+python3 19-03-2021-fasta-to-fusions-pipe.py -r file.fastq -f path/to/flair.py -g /path/to/genome.fa -t /path/to/anno.gtf -a /path/to/anno-short.gtf
+
 
 Required (run in python3)
-
-
--o --output   output prefix (added to fastq prefix) default-today's date
 
 -r --reads    fastq of fasta file of long reads (nanopore or pacbio)
 
@@ -27,6 +28,8 @@ Required (run in python3)
 
 Optional
 
+
+-o --output   output prefix (added to fastq prefix) default-today's date
 
 -b --buffer length of buffer for combining nearby regions and determining distinct loci. default 50000
 
