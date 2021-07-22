@@ -28,14 +28,14 @@ parser = argparse.ArgumentParser(description='fusion caller parse options', usag
 parser.add_argument('-o', '--output', action='store', dest='o', default=date.today().strftime("%d-%m-%Y"), help='output file name base (default: date)')
 parser.add_argument('-r', '--reads', action='store', dest='r', default="", help='.fa or fq file')
 parser.add_argument('-m', '--bedFile', action='store', dest='m', default="", help='.bed file')
-parser.add_argument('-f', '--flair', action='store', dest='f', default="../flair.py", help='flair path')
+parser.add_argument('-f', '--flair', action='store', dest='f', default="/private/home/cafelton/flair-new/flair.py", help='flair path')
 parser.add_argument('-g', '--genome', action='store', dest='g', default="/private/groups/brookslab/reference_sequence/GRCh38.primary_assembly.genome.fa", help='path to genome')
 #parser.add_argument('-x', '--minimap', action='store', dest='x', default="/private/groups/brookslab/bin/minimap2", help='path to minimap')
 parser.add_argument('-k', '--remapSize', action='store', dest='k', default=0, type=int, help='size of area to remap - only remaps if this is specified')
 parser.add_argument('-t', '--transcriptome', action='store', dest='t', default="/private/groups/brookslab/reference_annotations/gencode.v37.annotation.gtf", help='path to transcriptome')
-parser.add_argument('-e', '--dupGenes', action='store', dest='e', default="human_duplicated_genes.tsv", help='path to dup genes list')
+parser.add_argument('-e', '--dupGenes', action='store', dest='e', default=os.path.dirname(os.path.realpath(__file__))+"/human_duplicated_genes.tsv", help='path to dup genes list')
 parser.add_argument('-b', '--buffer', action='store', dest='b', default=50000, help='length of buffer for combining nearby regions')
-parser.add_argument('-a', '--anno', action='store', dest='a', default='/private/groups/brookslab/cafelton/id-fusions-new/gencodeGenesShort.gtf', help='path to anno.gtf')
+parser.add_argument('-a', '--anno', action='store', dest='a', default=os.path.dirname(os.path.realpath(__file__))+'/gencode.v37.annotation-short.gtf', help='path to anno.gtf')
 parser.add_argument('-p', '--bedProcess', action='store_true', dest='p', help='whether to take .bam and convert to .bed and process (True = assume existing processed .bam)')
 parser.add_argument('-s', '--samConvert', action='store_true', dest='s', help='whether to convert .bam to .sam or (True = convert .bam (from fq prefix) to .sam)')
 parser.add_argument('-y', '--includeMito', action='store_true', dest='y', help='whether to include fusions that are in the mitochondria (True=include)')
@@ -240,7 +240,7 @@ if not args.d:
 	c = 0
 	#print(new_fusions_found)
 	for i in new_fusions_found:
-		if i in clinicalF: print(i)
+		#if i in clinicalF: print(i)
 		supportCount = len(new_fusions_found[i]['readNames'])
 		mapScore = round((new_fusions_found[i]['mapScore']/float(supportCount * len(i.split('--'))))/maxMapQ, 3) #* len(i.split('-')))
 		#repeatScore = round((new_fusions_found[i]['repeatScore']/float(supportCount * len(i.split('--')))), 3) #* len(i.split('-')))
@@ -589,11 +589,12 @@ if not args.d:
 		if '--'.join(fusion.split('--')[::-1]) in fastqFusionLocs: fastqDist = abs(fastqFusionLocs['--'.join(fusion.split('--')[::-1])][-1])
 		#print(fusion, fastqDist, far)
 		if fusion in clinicalF: print("clinical", fusion, fastqDist, far)
-		if fastqDist < 15 and (len(list(set(chrs))) > 1 or far or fusion in clinicalF):
+		if (fastqDist < 15 and (len(list(set(chrs))) > 1 or far)) or fusion in clinicalF:
+			#print(fusion, fastqDist, far)
 			if len(SSdist) > 1:
 				#print(SSdist[0][0][0], SSdist[1][0][0])
 				#print(fusion, SSdist,SSdist[0][0][0] < 5 and SSdist[1][0][0] < 5, fastqDist)
-				if SSdist[0][0][0] < 5 and SSdist[1][0][0] < 5:#min([a[0] for a in SSdist[0]]) < 5 and min([a[0] for a in SSdist[1]]) < 5:
+				if SSdist[0][0][0] <= 5 and SSdist[1][0][0] <= 5:#min([a[0] for a in SSdist[0]]) < 5 and min([a[0] for a in SSdist[1]]) < 5:
 					if theseLocs[0] in geneInfo:
 						if geneInfo[theseLocs[0]] != None:
 							aDistToProm = abs(SSdist[0][1][1] - int(geneInfo[theseLocs[0]][1])) if geneInfo[theseLocs[0]][0] == '+' else abs(SSdist[0][1][1] - int(geneInfo[theseLocs[0]][2]))
@@ -615,7 +616,8 @@ if not args.d:
 						temp[1][-2] = str(SSdist[0][0][1])
 					orgFusionsDict[-2] = '-'.join(temp[0])
 					orgFusionsDict[-1] = '-'.join(temp[1])
-					# print(theseLocs[0], aDistToProm, theseLocs[1], bDistToProm)
+					# 
+					(theseLocs[0], aDistToProm, theseLocs[1], bDistToProm)
 					# if aDistToProm < bDistToProm:
 					# 	orgFusionsDict[0] = theseLocs[0] + '-' + theseLocs[1]
 					# 	orgFusionsDict[-2] = "3'-" + theseLocs[1] + '-' + geneInfo[theseLocs[1]][-1] + '-' + str(SSdist[1][1][1]) + '-' + temp[0][-1]
