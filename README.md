@@ -2,7 +2,7 @@
 
 Requires FLAIR (https://github.com/BrooksLabUCSC/flair), python3 and numpy
 
-minimap2 and bedtools must be in your path
+minimap2 and bedtools2.28 must be in your path
 
 First: run makeShortAnno with
 
