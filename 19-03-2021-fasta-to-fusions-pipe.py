@@ -800,8 +800,8 @@ if not args.i:
 	#print('python3 ' + args.f + ' collapse -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-l.bed -o ' + prefix + '.fusions.l')
 	process = subprocess.Popen(
 		#collapse breaks.simplen/he_v2.3.5_pass.fastq --generate_map -q 17-03-2021he_v2.3.5_passReads-1.bed -o he.fusions.collapse
-		'python3 ' + args.f + ' collapse --stringent --temp_dir /scratch/cafelton/ -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-l.bed -o ' + prefix + '.fusions.l' +
-		'; python3 ' + args.f + ' collapse --stringent --temp_dir /scratch/cafelton/ -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-r.bed -o ' + prefix + '.fusions.r',
+		'python3 ' + args.f + ' collapse --stringent --temp_dir temp_dir_l -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-l.bed -o ' + prefix + '.fusions.l' +
+		'; python3 ' + args.f + ' collapse --stringent --temp_dir temp_dir_r -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-r.bed -o ' + prefix + '.fusions.r',
 		stdout=subprocess.PIPE, shell=True)
 	print(process.communicate()[0].strip())
 
