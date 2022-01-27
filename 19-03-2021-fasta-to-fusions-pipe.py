@@ -3,6 +3,9 @@ from datetime import date
 from statistics import median
 from collections import Counter
 import copy
+# import time
+# import json
+import numpy
 
 def binarySearch(arr, t):
 	if t <= arr[0]: return arr[0]
@@ -24,7 +27,7 @@ def binarySearch(arr, t):
 
 #Removing all repetitive region references
 
-parser = argparse.ArgumentParser(description='fusion caller parse options', usage='python3 19-03-2021-flair-to-fusions-pipe.py -g genome.fa -t anno.gtf -a anno-short.gtf -f path-to-flair -r reads.fastq')
+parser = argparse.ArgumentParser(description='fusion caller parse options', usage='python 8-7-flair-to-fusions-pipe.py -i flair.aligned.bam -o outputPrefix -b buffer -a path to annotations')
 parser.add_argument('-o', '--output', action='store', dest='o', default=date.today().strftime("%d-%m-%Y"), help='output file name base (default: date)')
 parser.add_argument('-r', '--reads', action='store', dest='r', default="", help='.fa or fq file')
 parser.add_argument('-m', '--bedFile', action='store', dest='m', default="", help='.bed file')
@@ -32,13 +35,17 @@ parser.add_argument('-f', '--flair', action='store', dest='f', default="/private
 parser.add_argument('-g', '--genome', action='store', dest='g', default="/private/groups/brookslab/reference_sequence/GRCh38.primary_assembly.genome.fa", help='path to genome')
 #parser.add_argument('-x', '--minimap', action='store', dest='x', default="/private/groups/brookslab/bin/minimap2", help='path to minimap')
 parser.add_argument('-k', '--remapSize', action='store', dest='k', default=0, type=int, help='size of area to remap - only remaps if this is specified')
-parser.add_argument('-t', '--transcriptome', action='store', dest='t', default="/private/groups/brookslab/reference_annotations/gencode.v37.annotation.gtf", help='path to transcriptome')
-parser.add_argument('-e', '--dupGenes', action='store', dest='e', default=os.path.dirname(os.path.realpath(__file__))+"/human_duplicated_genes.tsv", help='path to dup genes list')
+parser.add_argument('-t', '--transcriptome', action='store', dest='t', default="/private/groups/brookslab/reference_annotations/gencode.v37.annotation.gtf", help='path to transcriptome (.gtf)')
+parser.add_argument('-n', '--spliceJunctions', action='store', dest='n', default="/private/groups/brookslab/cafelton/fusions-code/intropolis.liftover.hg38.junctions.sorted.txt", help='path to splice junction file (.txt)')
+parser.add_argument('-e', '--dupGenes', action='store', dest='e', default="/private/groups/brookslab/reference_annotations/human_duplicated_genes.tsv", help='path to dup genes list')
 parser.add_argument('-b', '--buffer', action='store', dest='b', default=50000, help='length of buffer for combining nearby regions')
-parser.add_argument('-a', '--anno', action='store', dest='a', default=os.path.dirname(os.path.realpath(__file__))+'/gencode.v37.annotation-short.gtf', help='path to anno.gtf')
+parser.add_argument('-l', '--readSupport', action='store', dest='l', default=3, help='number of reads required to call fusion')
+parser.add_argument('-a', '--anno', action='store', dest='a', default=os.path.dirname(__file__) + '/gencode.v37.annotation-short.gtf', help='path to anno.gtf')
 parser.add_argument('-p', '--bedProcess', action='store_true', dest='p', help='whether to take .bam and convert to .bed and process (True = assume existing processed .bam)')
 parser.add_argument('-s', '--samConvert', action='store_true', dest='s', help='whether to convert .bam to .sam or (True = convert .bam (from fq prefix) to .sam)')
 parser.add_argument('-y', '--includeMito', action='store_true', dest='y', help='whether to include fusions that are in the mitochondria (True=include)')
+# parser.add_argument('-q', '--geneCov', action='store_true', dest='q', help='whether to filter out fusions ')
+# parser.add_argument('-v', '--fastqCov', action='store_true', dest='v', help='whether to include fusions that are in the mitochondria (True=include)')
 parser.add_argument('-u', '--flairAlign', action='store_true', dest='u', help='whether to run flair align (True=already aligned, dont run)')
 parser.add_argument('-c', '--flairCorrect', action='store_true', dest='c', help='whether to run flair correct (True=already corrected, dont run)')
 parser.add_argument('-d', '--detectFusions', action='store_true', dest='d', help='whether to detect fusions (True=already detected, dont run)')
@@ -71,28 +78,52 @@ if not args.p:
 	print(process.communicate()[0].strip())
 	print('done with preprocessing')
 
-outfilename = args.o + prefix
+outfilename = '/'.join(prefix.split('/')[:-1]) + args.o + prefix.split('/')[-1]
 if not args.d:
 	args.b = int(args.b)
+	meta = open(outfilename + "-meta.txt", "w")
+	# metadata = {"readsup":0, "map":0, "isMito":0, "isDup":0, "tooCloseBp":0, "fastqDist":0, "tooClose2":0, "ssdist":0, "chimericLoci":0, "secondFilter":0}
+	metadata = []
 	bed = open(prefix + '-bedtools-genes-short.bed', 'r')
-	print('loading splice junctions')
+	print('loading reads')
 	junctions = {}
 	count = 0
-	for line in open("/private/groups/brookslab/cafelton/fusions-code/intropolis.liftover.hg38.junctions.txt",
-					 'r'):  # "/private/groups/brookslab/cafelton/fusions-code/gencode.v37.junctions.txt", 'r'):
+	readLength = {}
+	last = None
+
+	adapterReadLocs = {}
+	# for line in open(prefix.split("_")[0] + "-reads-with-central-adapters-editdist-6.txt"):
+	# 	line = line.rstrip().split("\t")
+	# 	adapterReadLocs[line[0]] = [int(i) for i in list(set(line[1].split(",")))]
+
+	for line in open(args.r, 'r'):
+		if line[0] == '@':
+			last = line.split('\t')[0].lstrip("@")
+		elif line[0] == ">":
+			last = line.rstrip().lstrip(">")
+		else:
+			readLength[last] = len(line)
+	print('loading splice junctions and genes')
+	for line in open(args.n, 'r'):  # "/private/groups/brookslab/cafelton/fusions-code/gencode.v37.junctions.txt", 'r'):
 		count += 1
 		if count % 2 > 0:
 			last = line.strip()
 		else:
-			temp = [int(i) for i in line.strip().split(',')]
-			temp.sort()
+			temp = numpy.fromstring(line.rstrip(), dtype=numpy.int, sep=",")
+			# temp = json.loads('[' + line.rstrip() + ']')
 			junctions[last] = temp
+	print(junctions['chr1'][:10])
+	# print("loading genes")
+	geneLength = {}
+	for line in open(args.a, 'r'):
+		if line[0] != "#":
+			line = line.split('\t')
+			name = line[8].split('gene_name "')[1].split('"')[0]
+			geneLength[name] = int(line[4])-int(line[3])
 	clinicalF = []
 	for line in open("/private/groups/brookslab/cafelton/fusions-code/treehouse-clinical-fusions.txt"):
 		clinicalF.append(line.strip())
 	clinicalF = set(clinicalF)
-	reads = open(outfilename + "Reads.bed", "w")
-	fusions = open(outfilename + "Fusions.tsv", "w")
 	potential_chimeric = {}  # {read name: [entries]}
 	print("finding potential fusions \n")
 	bedLines = []
@@ -169,7 +200,7 @@ if not args.d:
 					fusions_found[fusion_name][loc]['right'].append(int(i[2]))
 					fusions_found[fusion_name][loc]['strand'].append(i[5])
 			fusions_found[fusion_name]['readNames'].append(read)
-	print('fusions',  len(fusions_found.keys()), c)
+	# print('fusions',  len(fusions_found.keys()), c)
 	#AGGREGATE AND SORT NON-GENIC REGIONS IN FUSIONS
 	print('condensing fusions in non-genic regions')
 	leftLocs, rightLocs = {}, {}
@@ -232,6 +263,7 @@ if not args.d:
 					for key in ['reads', 'left', 'right', 'strand']:
 						new_fusions_found['--'.join(locs)][locs[j]][key] += fusions_found[i][i.split('--')[j]][key]
 	print('new fusions',  len(new_fusions_found.keys()))
+	# metadata["chimericLoci"] = len(new_fusions_found.keys())
 	orgFusions = []
 	allMatches = []
 	readNames = {}
@@ -240,7 +272,7 @@ if not args.d:
 	c = 0
 	#print(new_fusions_found)
 	for i in new_fusions_found:
-		#if i in clinicalF: print(i)
+		# if i in clinicalF: print(i)
 		supportCount = len(new_fusions_found[i]['readNames'])
 		mapScore = round((new_fusions_found[i]['mapScore']/float(supportCount * len(i.split('--'))))/maxMapQ, 3) #* len(i.split('-')))
 		#repeatScore = round((new_fusions_found[i]['repeatScore']/float(supportCount * len(i.split('--')))), 3) #* len(i.split('-')))
@@ -254,7 +286,11 @@ if not args.d:
 		for loc in new_fusions_found[i]:
 			if loc not in ['mapScore', 'readNames', 'repeatScore']:
 				if new_fusions_found[i][loc]['chr'] == "chrM": isMito=True
-		if (supportCount >= 3 and (mapScore >= avgMapQ/float(maxMapQ) or mapScore > 0.9) and mapScore > .5\
+		if supportCount < int(args.l): metadata.append([i, 'readsup', str(supportCount), new_fusions_found[i]['readNames']])#metadata["readsup"] += 1
+		if not ((mapScore >= avgMapQ/float(maxMapQ) or mapScore > 0.8) and mapScore > .5): metadata.append([i, 'mapScore', str(mapScore), new_fusions_found[i]['readNames']])#metadata["map"] += 1
+		if isMito: metadata.append([i, 'isMito', 'M', new_fusions_found[i]['readNames']])#metadata["isMito"] += 1
+		if isDup: metadata.append([i, 'isDup', 'D', new_fusions_found[i]['readNames']])#metadata["isDup"] += 1
+		if (supportCount >= int(args.l) and (mapScore >= avgMapQ/float(maxMapQ) or mapScore > 0.8) and mapScore > .5\
 				and (args.y or ('chrM' not in i and not isMito)) and not isDup) or i in clinicalF:
 			currFusion = [i, str(supportCount), str(mapScore)]#, str(repeatScore)]
 			distTo5 = []
@@ -317,7 +353,9 @@ if not args.d:
 						readNames[j] = {'fusion': i, **copy.deepcopy(locInfo)}
 					allMatches += new_fusions_found[i]['readNames']
 					orgFusions.append(currFusion)
-	print('org fusions', len(orgFusions))
+				else: metadata.append([i, 'tooClose', 'tc', new_fusions_found[i]['readNames']])#metadata["tooCloseBp"] += 1
+			else: metadata.append([i, 'tooClose', 'tc', new_fusions_found[i]['readNames']])#metadata["tooCloseBp"] += 1
+	# print('org fusions', len(orgFusions))
 	# for i in orgFusions: print(i)
 	correctQ = prefix if os.path.exists(prefix + '.bam') else prefix + '.aligned'
 	if args.s:
@@ -417,17 +455,21 @@ if not args.d:
 	# 		readLength[line[0].lstrip('@')] = int(line[2].split('=')[1])
 	# fq.close()
 	sam = open(correctQ + '.sam', 'r')
-	myReads = set(readNames.keys())
+	#myReads = set(readNames.keys())
 	print('checking multi-mapping distance - searching sam file')
-	readSams = {i:[] for i in allMatches}
+	readSams = {i:{'dist':[],'len':[]} for i in allMatches}
+	c = 0
+	allLenDiff = 0
 	for line in sam:
 		line = line.rstrip().split('\t')
 		if line[0] in allMatches:
+			c += 1
 			locs = []
 			i = 0
 			while line[5][i] not in ['M', 'D', 'I', 'S', 'H', 'X', 'P', 'N']:
 				i += 1
-			locs.append(int(line[5][:i]))
+			if line[5][i] == 'M': locs.append(0)
+			else: locs.append(int(line[5][:i]))
 			i = -2
 			while line[5][i] not in ['M', 'D', 'I', 'S', 'H', 'X', 'P', 'N']:
 				i -= 1
@@ -435,31 +477,82 @@ if not args.d:
 			if line[0] not in readLength:
 				readLength[line[0]] = len(line[9])
 			#DONE
-			locs.append(readLength[line[0]] - int(line[5][i+1:-1]))
+			if line[5][-1] == 'M': locs.append(readLength[line[0]])
+			else: locs.append(readLength[line[0]] - int(line[5][i+1:-1]))
+			#New 10/2021
+			i = 0
+			last = 0
+			total = 0
+			while i < len(line[5]):
+				if not line[5][i].isnumeric():
+					if  line[5][i] not in ['S', 'H', 'I', 'P']:
+						# print(last, i, myS[last], myS[i])
+						total += int(line[5][last:i])
+					last = i + 1
+				i += 1
+			fusInfo = readNames[line[0]]
+			currDist = 1000000000000000000000
+			currGene = None
+			for loc in fusInfo.keys():
+				if loc != 'fusion':
+					if 'chr' + fusInfo[loc]['chr'] == line[2]:
+						temp = abs(fusInfo[loc]['loc'] - int(line[3]))
+						if temp < currDist:
+							currGene = loc
+							currDist = temp
+			lenDiff=1
+			if currGene != None:
+				if currGene[:3] != 'chr' and currGene in geneLength:
+					lenDiff = total/geneLength[currGene]
+			allLenDiff += lenDiff
+			#DONE
+			# if c < 3:
+			# 	print(line[0], readNames[line[0]])
+			# c += 1
 			if line[1] == '16' or line[1] == '2064':
 				locs[0] = readLength[line[0]]-locs[0]
 				locs[1] = readLength[line[0]] - locs[1]
 				locs = locs[::-1]
 			locs.append(line[2] + '-' + line[3])
 			#readSams[line[0]].append(line)
-			readSams[line[0]].append(locs)
+			readSams[line[0]]['dist'].append(locs)
+			readSams[line[0]]['len'].append(lenDiff)
+			#readSams[line[0]]['fastqlen'].append(total)
 	sam.close()
+	# print("avg len diff", allLenDiff/c)
 	#tempOut = open("readsToOverlap-2.txt", 'w')
 	# tempout1 = open("drr-noOverlap.txt", 'w')
 	# tempout2 = open("drr-Overlap.txt", 'w')
 	c = 0
 	fastqFusionLocs = {}#{i[0]:[] for i in orgFusions}
+	# fusionLenDiff = {}
+	# fusionFastqCov = {}
 	keysToRemove = []
+
+	# adapterOut = open(prefix.split("_")[0] + '-with-adapters-near-breakpoints-editdist-6.txt', 'w')
 	for i in readSams:
 		c += 1
-		if len(readSams[i]) == 2:
-			readSams[i].sort()
-			readSams[i].append(readSams[i][1][0]-readSams[i][0][1])
-			# if c < 10 or i == "DRR059313.9578":
+		if len(readSams[i]['dist']) == 2:
+			readSams[i]['dist'].sort()
+			readSams[i]['dist'].append(readSams[i]['dist'][1][0]-readSams[i]['dist'][0][1])
+			# for j in
+			# if c < 10: #or i == "DRR059313.9578":
 			# 	print(i, readSams[i], readNames[i]['fusion'])
+			# 	print(readLength[i], readLength[i]-((readSams[i]['dist'][1][1]-readSams[i]['dist'][0][0])-(readSams[i]['dist'][1][0]-readSams[i]['dist'][0][1])))
 			if readNames[i]['fusion'] not in fastqFusionLocs:
-				fastqFusionLocs[readNames[i]['fusion']] = []
-			fastqFusionLocs[readNames[i]['fusion']].append(readSams[i])
+				fastqFusionLocs[readNames[i]['fusion']] = {'loc':[], 'len':[], 'fastqCov':[]}
+			# if i in adapterReadLocs:
+			# 	for j in adapterReadLocs[i]:
+			# 		if abs(readSams[i]['dist'][0][1] - j) < 50 or abs(readSams[i]['dist'][1][0] - j) < 50:
+			# 			adapterOut.write(readNames[i]['fusion'] + '\t' + i + '\t' + str(j) + '\n')
+			# if readNames[i]['fusion'] not in fusionLenDiff:
+			# 	fusionLenDiff[readNames[i]['fusion']] = []
+			fastqFusionLocs[readNames[i]['fusion']]['loc'].append(readSams[i]['dist'])
+			tempavg = sum(readSams[i]['len'])/float(len(readSams[i]['len']))
+			# if readNames[i]['fusion'] == 'BCL11B--CD48' or readNames[i]['fusion'] == 'CD48--BCL11B' or readNames[i]['fusion'] == 'TCF19--MEP1A' or readNames[i]['fusion'] == 'MEP1A--TCF19':
+			# 	print(readNames[i]['fusion'], readSams[i]['dist'])
+			fastqFusionLocs[readNames[i]['fusion']]['len'].append(tempavg + ((max(readSams[i]['len'])-tempavg)/2))#sum(readSams[i]['len'])/float(len(readSams[i]['len'])))
+			fastqFusionLocs[readNames[i]['fusion']]['fastqCov'].append(((readSams[i]['dist'][1][1]-readSams[i]['dist'][0][0])-(readSams[i]['dist'][1][0]-readSams[i]['dist'][0][1]))/readLength[i])
 			#tempOut.write(readNames[i]['fusion']+ '\t' + i + '\t' + str(readSams[i]) + '\n')
 			# if readNames[i]['fusion'] == 'EFHD1--UBR3' or readNames[i]['fusion'] == 'UBR3--EFHD1':
 			# if readSams[i][-1] > -5: tempout1.write(i + '\n')
@@ -467,21 +560,26 @@ if not args.d:
 		#THIS IS TEMPORARY< REMOVE FOR MORE FLEXIBILITY/3-GENE
 		else: keysToRemove.append(i)
 		#DONE
+	# adapterOut.close()
 			# else: readSams[i].append(readSams[i][0][0]-readSams[i][1][1])
 	# for i in fastqFusionLocs["CCDC6--RET"]:
 	# 	print(i)
-	for i in keysToRemove: readSams.pop(i)
+	#for i in keysToRemove: readSams.pop(i)
 	for i in fastqFusionLocs:
-		temp = [a[-1] for a in fastqFusionLocs[i]]
+		temp = [a[-1] for a in fastqFusionLocs[i]['loc']]
 		temp.sort()
-		# print(i, temp[int(len(temp) / 2)])
-		fastqFusionLocs[i].append(temp[int(len(temp) / 2)])
+		# print(i, temp, temp[int(len(temp) / 2)])
+		# print(i, fastqFusionLocs[i]['dist'])
+		fastqFusionLocs[i]['loc'].append(temp[int(len(temp) / 2)])
 		# print(temp[int(len(temp)/2)], int(sum(temp)/len(temp)))
 		#print(temp[int(len(temp)/4):-int(len(temp)/4)])
 		# print(temp)
+	# print(fusionLenDiff)
 
 
-	print('fusions filtered')
+	# print('fusions filtered')
+	reads = open(outfilename + "Reads.bed", "w")
+	fusions = open(outfilename + "Fusions.tsv", "w")
 	if len(orgFusions) > 0:
 		avgQualScore = avgQualScore/len(orgFusions)
 	orgFusions.sort(key=lambda x:abs(x[-1]), reverse=True)
@@ -505,6 +603,7 @@ if not args.d:
 	count = 0
 	last = ""
 	print("num pre final filter", len(fusionReadLocs.keys()))
+	# metadata["secondFilter"] = len(fusionReadLocs.keys())
 	bedLinesFiltered = []
 	fusionDist = {a:[] for a in list(fusionReadLocs.keys())}
 	for line in bedLines:
@@ -531,7 +630,10 @@ if not args.d:
 					line[-1] += ','
 				bedLinesFiltered.append(line)
 	c = 0
+	x = 0
 	finalFusions = []
+	almostDone = []
+	adGenes = []
 	for fusion in fusionReadLocs:
 		wasWritten = False
 		theseLocs = []
@@ -539,7 +641,6 @@ if not args.d:
 		readEnds = []
 		counts = []
 		chrs = []
-		#c += 1
 		for loc in fusionReadLocs[fusion]:
 			chrs.append(loc.split('-')[-1])
 			temp = [list(i) for i in zip(*fusionReadLocs[fusion][loc])]
@@ -585,16 +686,25 @@ if not args.d:
 					abs(counts[1] - counts[2]) < args.b or abs(counts[1] - counts[3]) < args.b:
 				far = False
 		fastqDist = 500
-		if fusion in fastqFusionLocs: fastqDist = abs(fastqFusionLocs[fusion][-1])
-		if '--'.join(fusion.split('--')[::-1]) in fastqFusionLocs: fastqDist = abs(fastqFusionLocs['--'.join(fusion.split('--')[::-1])][-1])
-		#print(fusion, fastqDist, far)
-		if fusion in clinicalF: print("clinical", fusion, fastqDist, far)
+
+		if fusion in fastqFusionLocs:
+			fastqDist = abs(fastqFusionLocs[fusion]['loc'][-1])
+			lenDiff = str(sum(fastqFusionLocs[fusion]['len']) / len(fastqFusionLocs[fusion]['len']))
+			fastqCov = str(sum(fastqFusionLocs[fusion]['fastqCov']) / len(fastqFusionLocs[fusion]['fastqCov']))
+		elif '--'.join(fusion.split('--')[::-1]) in fastqFusionLocs:
+			fastqDist = abs(fastqFusionLocs['--'.join(fusion.split('--')[::-1])]['loc'][-1])
+			lenDiff = str(sum(fastqFusionLocs['--'.join(fusion.split('--')[::-1])]['len']) / len(fastqFusionLocs['--'.join(fusion.split('--')[::-1])]['len']))
+			fastqCov = str(sum(fastqFusionLocs['--'.join(fusion.split('--')[::-1])]['fastqCov']) / len(fastqFusionLocs['--'.join(fusion.split('--')[::-1])]['fastqCov']))
+		# print(fusion, fastqDist, far)
+		fusion2 = fusion if fusion in new_fusions_found else '--'.join(fusion.split('--')[::-1])
+		if fastqDist >= 15: metadata.append([fusion, 'fastqDist', str(fastqDist), new_fusions_found[fusion2]['readNames']])#metadata["fastqDist"] += 1
+		if not (len(list(set(chrs))) > 1 or far): metadata.append([fusion, 'tooClose2', 'tc2', new_fusions_found[fusion2]['readNames']])#metadata["tooClose2"] += 1
 		if (fastqDist < 15 and (len(list(set(chrs))) > 1 or far)) or fusion in clinicalF:
-			#print(fusion, fastqDist, far)
+			# print(fusion, fastqDist, (far or len(list(set(chrs))) > 1))
 			if len(SSdist) > 1:
-				#print(SSdist[0][0][0], SSdist[1][0][0])
+				# print(SSdist[0][0][0], SSdist[1][0][0])
 				#print(fusion, SSdist,SSdist[0][0][0] < 5 and SSdist[1][0][0] < 5, fastqDist)
-				if SSdist[0][0][0] <= 5 and SSdist[1][0][0] <= 5:#min([a[0] for a in SSdist[0]]) < 5 and min([a[0] for a in SSdist[1]]) < 5:
+				if SSdist[0][0][0] <= 10 and SSdist[1][0][0] <= 10:#min([a[0] for a in SSdist[0]]) < 5 and min([a[0] for a in SSdist[1]]) < 5:
 					if theseLocs[0] in geneInfo:
 						if geneInfo[theseLocs[0]] != None:
 							aDistToProm = abs(SSdist[0][1][1] - int(geneInfo[theseLocs[0]][1])) if geneInfo[theseLocs[0]][0] == '+' else abs(SSdist[0][1][1] - int(geneInfo[theseLocs[0]][2]))
@@ -616,8 +726,7 @@ if not args.d:
 						temp[1][-2] = str(SSdist[0][0][1])
 					orgFusionsDict[-2] = '-'.join(temp[0])
 					orgFusionsDict[-1] = '-'.join(temp[1])
-					# 
-					(theseLocs[0], aDistToProm, theseLocs[1], bDistToProm)
+					# print(theseLocs[0], aDistToProm, theseLocs[1], bDistToProm)
 					# if aDistToProm < bDistToProm:
 					# 	orgFusionsDict[0] = theseLocs[0] + '-' + theseLocs[1]
 					# 	orgFusionsDict[-2] = "3'-" + theseLocs[1] + '-' + geneInfo[theseLocs[1]][-1] + '-' + str(SSdist[1][1][1]) + '-' + temp[0][-1]
@@ -626,25 +735,67 @@ if not args.d:
 					# 	orgFusionsDict[0] = theseLocs[1] + '-' + theseLocs[0]
 					# 	orgFusionsDict[-1] = "5'-" + theseLocs[1] + '-' + geneInfo[theseLocs[1]][-1] + '-' + str(SSdist[1][1][1]) + '-' + temp[0][-1]
 					# 	orgFusionsDict[-2] = "3'-" + theseLocs[0] + '-' + geneInfo[theseLocs[0]][-1] + '-' + str(SSdist[0][1][1]) + '-' + temp[1][-1]
-					fusions.write('\t'.join(orgFusionsDict[fusion]) + '\n')
-					wasWritten = True
-					finalFusions.append(fusion)
+					orgFusionsDict[fusion].append(lenDiff)
+					orgFusionsDict[fusion].append(fastqCov)
+					almostDone.append(orgFusionsDict[fusion])
+					adGenes.append(fusion.split('--')[0])
+					adGenes.append(fusion.split('--')[1])
+					# fusions.write('\t'.join(orgFusionsDict[fusion]) + '\n')
+					# wasWritten = True
+					# finalFusions.append(fusion)
 					c += 1
+				else: metadata.append([fusion, 'ssDist', '-'.join([str(x) for x in SSdist]), new_fusions_found[fusion2]['readNames']])#metadata["ssdist"] += 1
 			elif len(SSdist) == 1:
-				if SSdist[0][0][0] < 5:
+				if SSdist[0][0][0] < 10:
 					c += 1
-					fusions.write('\t'.join(orgFusionsDict[fusion]) + '\n')
-					wasWritten = True
-					finalFusions.append(fusion)
-		if not wasWritten: print(fusion)
+					almostDone.append(orgFusionsDict[fusion])
+					adGenes.append(fusion.split('--')[0])
+					adGenes.append(fusion.split('--')[1])
+					# fusions.write('\t'.join(orgFusionsDict[fusion]) + '\n')
+					# wasWritten = True
+					# finalFusions.append(fusion)
+				else: metadata.append([fusion, 'ssDist', '-'.join([str(x) for x in SSdist]), new_fusions_found[fusion2]['readNames']])#metadata["ssdist"] += 1
+			else: metadata.append([fusion, 'ssDist', '-'.join([str(x) for x in SSdist]), new_fusions_found[fusion2]['readNames']])#metadata["ssdist"] += 1
+		# if wasWritten: metadata["secondFilter"] -= 1
+		# if not wasWritten: print('bad', fusion)
+	c = 0
+	freq = Counter(adGenes)
+	for temp in almostDone:#"01-11-2021nor1_v2.3.5_passFusions.tsv"):
+		good = True
+		a = temp[5].split("-")
+		b = temp[6].split("-")
+		fusion2 = temp[0] if temp[0] in new_fusions_found else '--'.join(temp[0].split('--')[::-1])
+		if len(temp) > 8 and temp[0] not in clinicalF:
+			# if a[-3] != b[-3] or abs(int(a[-2])-int(b[-2])) < 1000000:
+			# 	good = False
+			# 	metadata.append([temp[0], 'tooClose', new_fusions_found[fusion2]['readNames']])
+			if float(temp[-1]) < 0.7:
+				good = False
+				metadata.append([temp[0], 'fastqCov', str(temp[-1]), new_fusions_found[fusion2]['readNames']])
+			if float(temp[-2]) > 0.9:
+				good = False
+				metadata.append([temp[0], 'geneCov', str(temp[-2]), new_fusions_found[fusion2]['readNames']])
+			if freq[temp[0].split("--")[0]] > 2 or freq[temp[0].split("--")[1]] > 2:
+				good = False
+				metadata.append([temp[0], 'repeat', 'r', new_fusions_found[fusion2]['readNames']])
+		# else: good=False
+		# else: print(temp[0], freq[temp[0].split("--")[0]], freq[temp[0].split("--")[1]])
+		if good:
+			finalFusions.append(temp[0])
+			fusions.write('\t'.join(temp[:7]) + '\n')
+			c += 1
 	print("final output", c)
 	fusions.close()
 	print('fusions written')
-	print(finalFusions[:3])
-	print(len(finalFusions))
+	for i in metadata:
+		i[3] = ','.join(i[3])
+		meta.write('\t'.join(i) + '\n')#i + "\t" + str(metadata[i]) + "\n")
+	meta.close()
+	#print(finalFusions[:3])
+	#print(len(finalFusions))
 	finalFusions = set(finalFusions)
-	print(len(bedLinesFiltered))
-	print(bedLinesFiltered[:3])
+	#print(len(bedLinesFiltered))
+	#print(bedLinesFiltered[:3])
 	printNames = open(outfilename + "readNames.txt", "w")
 	for line in bedLinesFiltered:
 		if line[3].split('-.-')[0] in finalFusions:
@@ -779,8 +930,8 @@ if not args.i:
 			right.append(fusion[1])
 	left = set(left)
 	right = set(right)
-	print("left")
-	print(left)
+	# print("left")
+	# print(left)
 	leftOut = open(outfilename + 'Reads-l.bed', 'w')
 	rightOut = open(outfilename + 'Reads-r.bed', 'w')
 	leftReads, rightReads = [], []
@@ -795,13 +946,13 @@ if not args.i:
 			rightOut.write(line)
 	leftOut.close()
 	rightOut.close()
-	print(c)
+	# print(c)
 	#print('python3 ' + args.f + ' collapse -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads.bed -o ' + prefix + '.fusions',)
 	#print('python3 ' + args.f + ' collapse -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-l.bed -o ' + prefix + '.fusions.l')
 	process = subprocess.Popen(
 		#collapse breaks.simplen/he_v2.3.5_pass.fastq --generate_map -q 17-03-2021he_v2.3.5_passReads-1.bed -o he.fusions.collapse
-		'python3 ' + args.f + ' collapse --stringent --temp_dir temp_dir_l -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-l.bed -o ' + prefix + '.fusions.l' +
-		'; python3 ' + args.f + ' collapse --stringent --temp_dir temp_dir_r -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-r.bed -o ' + prefix + '.fusions.r',
+		'python3 ' + args.f + ' collapse --stringent --temp_dir /scratch/cafelton/ -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-l.bed -o ' + prefix + '.fusions.l' +
+		'; python3 ' + args.f + ' collapse --stringent --temp_dir /scratch/cafelton/ -g ' + args.g + ' -r ' + args.r + ' --generate_map -q ' + outfilename + 'Reads-r.bed -o ' + prefix + '.fusions.r',
 		stdout=subprocess.PIPE, shell=True)
 	print(process.communicate()[0].strip())
 
@@ -893,6 +1044,7 @@ if not args.j and os.path.exists(prefix + '.fusions.l.isoform.read.map.txt'):
 	# print(multiGeneIsos)
 	# print(len(multiGeneIsos))
 	c = 0
+	written = []
 	for i in ['l', 'r']:
 		for line in open(prefix + '.fusions.' + i + '.isoforms.bed', 'r'):
 			line = line.strip().split('\t')
@@ -906,7 +1058,9 @@ if not args.j and os.path.exists(prefix + '.fusions.l.isoform.read.map.txt'):
 						temp = info
 						info[1] = j
 						line[3] = '-.-'.join(info)
-						readsOut.write('\t'.join(line) + '\n')
+						if line[3] not in written:
+							written.append(line[3])
+							readsOut.write('\t'.join(line) + '\n')
 	fusionsOut.close()
 	readsOut.close()
 	process = subprocess.Popen('rm -f ' + prefix + '.fusions.l.isoforms.fa ' + prefix + '.fusions.l.isoforms.bed ' + prefix + '.fusions.l.isoform.read.map.txt' + prefix + '.fusions.r.isoforms.fa ' + prefix + '.fusions.r.isoforms.bed ' + prefix + '.fusions.r.isoform.read.map.txt ' + outfilename + 'Reads-l.bed ' + outfilename + 'Reads-r.bed',stdout=subprocess.PIPE, shell=True)
