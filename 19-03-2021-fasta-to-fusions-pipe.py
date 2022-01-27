@@ -121,7 +121,7 @@ if not args.d:
 			name = line[8].split('gene_name "')[1].split('"')[0]
 			geneLength[name] = int(line[4])-int(line[3])
 	clinicalF = []
-	for line in open("/private/groups/brookslab/cafelton/fusions-code/treehouse-clinical-fusions.txt"):
+	for line in open(os.path.dirname(os.path.realpath(__file__))+"/treehouse-clinical-fusions.txt"):
 		clinicalF.append(line.strip())
 	clinicalF = set(clinicalF)
 	potential_chimeric = {}  # {read name: [entries]}
