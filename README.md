@@ -4,7 +4,13 @@ Requires FLAIR (https://github.com/BrooksLabUCSC/flair), python3 and numpy
 
 minimap2 and bedtools2.28 must be in your path
 
-First: run makeShortAnno with
+Also download intropolis.liftover.hg38.junctions.sorted.txt at https://drive.google.com/file/d/10Kz7lzVQlNF2ANoEKLcYIXPgfRubxQCQ/view?usp=sharing
+and save it to the same folder as 19-03-2021-fasta-to-fusions-pipe.py
+
+
+First: either download gencode.v37.annotation-short.gtf if using GRCh38 from https://drive.google.com/file/d/1oEUrrom8evGk9b1m7CSCp0PKdlEbWq9u/view?usp=sharing
+
+or run makeShortAnno with
 
 python makeShortAnno.py /other-folder/gene-annotation.gtf
 
