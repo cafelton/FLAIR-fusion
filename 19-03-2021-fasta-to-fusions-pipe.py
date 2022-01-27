@@ -70,9 +70,9 @@ if (bedFileMade or os.path.exists(prefix + '.aligned.bed') or len(args.m) > 0) a
 	print(process.communicate()[0].strip())
 if not args.p:
 	correctQ = args.m if args.c else prefix + '_all_corrected.bed'
-	#'python ' + os.path.dirname(os.path.realpath(__file__)) + '/standardizeBed.py' + ' -i ' + correctQ,
+	#'python3 ' + os.path.dirname(os.path.realpath(__file__)) + '/standardizeBed.py' + ' -i ' + correctQ,
 	myCommands = ['bedtools intersect -wao -a ' + correctQ.rstrip('bed').rstrip('.') + '.bed' + ' -b ' + args.a + ' > ' + prefix + '-bedtools-genes.txt',
-				  'python ' + os.path.dirname(os.path.realpath(__file__)) + '/bedtoolsGeneHelper.py' + ' -i ' + prefix + '-bedtools-genes.txt',
+				  'python3 ' + os.path.dirname(os.path.realpath(__file__)) + '/bedtoolsGeneHelper.py' + ' -i ' + prefix + '-bedtools-genes.txt',
 				  'rm ' + prefix + '-bedtools-genes.txt']
 	process = subprocess.Popen('; '.join(myCommands), stdout=subprocess.PIPE, shell=True)
 	print(process.communicate()[0].strip())
@@ -914,7 +914,7 @@ if int(args.k) > 0:
 			readsOut.write(line)
 
 
-	process = subprocess.Popen('python ' + os.path.dirname(os.path.realpath(__file__)) + '/makeAlnSeq.py -f ' + outfilename +
+	process = subprocess.Popen('python3 ' + os.path.dirname(os.path.realpath(__file__)) + '/makeAlnSeq.py -f ' + outfilename +
 							   'Genome.fa -r ' + outfilename + 'Remapped-unfilt.bed; rm ' + outfilename + 'Remapped-unfilt.bed',stdout=subprocess.PIPE, shell=True)
 	print(process.communicate()[0].strip())
 
