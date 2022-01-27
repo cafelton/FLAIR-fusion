@@ -40,7 +40,7 @@ parser.add_argument('-n', '--spliceJunctions', action='store', dest='n', default
 parser.add_argument('-e', '--dupGenes', action='store', dest='e', default=os.path.dirname(os.path.realpath(__file__))+"/human_duplicated_genes.tsv", help='path to dup genes list')
 parser.add_argument('-b', '--buffer', action='store', dest='b', default=50000, help='length of buffer for combining nearby regions')
 parser.add_argument('-l', '--readSupport', action='store', dest='l', default=3, help='number of reads required to call fusion')
-parser.add_argument('-a', '--anno', action='store', dest='a', default=os.path.dirname(__file__) + '/gencode.v37.annotation-short.gtf', help='path to anno.gtf')
+parser.add_argument('-a', '--anno', action='store', dest='a', default=os.path.dirname(os.path.realpath(__file__)) + "/gencode.v37.annotation-short.gtf", help='path to anno.gtf')
 parser.add_argument('-p', '--bedProcess', action='store_true', dest='p', help='whether to take .bam and convert to .bed and process (True = assume existing processed .bam)')
 parser.add_argument('-s', '--samConvert', action='store_true', dest='s', help='whether to convert .bam to .sam or (True = convert .bam (from fq prefix) to .sam)')
 parser.add_argument('-y', '--includeMito', action='store_true', dest='y', help='whether to include fusions that are in the mitochondria (True=include)')
