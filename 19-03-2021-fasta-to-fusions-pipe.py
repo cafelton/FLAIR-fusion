@@ -686,7 +686,7 @@ if not args.d:
 					abs(counts[1] - counts[2]) < args.b or abs(counts[1] - counts[3]) < args.b:
 				far = False
 		fastqDist = 500
-
+		lenDiff = 0
 		if fusion in fastqFusionLocs:
 			fastqDist = abs(fastqFusionLocs[fusion]['loc'][-1])
 			lenDiff = str(sum(fastqFusionLocs[fusion]['len']) / len(fastqFusionLocs[fusion]['len']))
