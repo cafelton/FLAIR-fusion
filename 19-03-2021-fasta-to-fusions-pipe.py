@@ -44,6 +44,7 @@ parser.add_argument('-a', '--anno', action='store', dest='a', default=os.path.di
 parser.add_argument('-p', '--bedProcess', action='store_true', dest='p', help='whether to take .bam and convert to .bed and process (True = assume existing processed .bam)')
 parser.add_argument('-s', '--samConvert', action='store_true', dest='s', help='whether to convert .bam to .sam or (True = convert .bam (from fq prefix) to .sam)')
 parser.add_argument('-y', '--includeMito', action='store_true', dest='y', help='whether to include fusions that are in the mitochondria (True=include)')
+parser.add_argument('-w', '--removePromiscuous', action='store_true', dest='w', help='whether to filter out promiscuous chimeric genes')
 # parser.add_argument('-q', '--geneCov', action='store_true', dest='q', help='whether to filter out fusions ')
 # parser.add_argument('-v', '--fastqCov', action='store_true', dest='v', help='whether to include fusions that are in the mitochondria (True=include)')
 parser.add_argument('-u', '--flairAlign', action='store_true', dest='u', help='whether to run flair align (True=already aligned, dont run)')
@@ -115,11 +116,13 @@ if not args.d:
 	print(junctions['chr1'][:10])
 	# print("loading genes")
 	geneLength = {}
+	allGeneLoc = {}
 	for line in open(args.a, 'r'):
 		if line[0] != "#":
 			line = line.split('\t')
 			name = line[8].split('gene_name "')[1].split('"')[0]
 			geneLength[name] = int(line[4])-int(line[3])
+			allGeneLoc[name] = [line[0], int(line[3]), int(line[4])]
 	clinicalF = []
 	for line in open(os.path.dirname(os.path.realpath(__file__))+"/treehouse-clinical-fusions.txt"):
 		clinicalF.append(line.strip())
@@ -347,7 +350,17 @@ if not args.d:
 			# print(isinstance(currFusion[4], list), currFusion[4])
 			if isinstance(currFusion[4], str) and isinstance(currFusion[5], str):
 				# print(currFusion[0])
-				if currFusion[4].split('-')[-3] != currFusion[5].split('-')[-3] or abs(int(currFusion[4].split('-')[-2]) - int(currFusion[5].split('-')[-2])) > args.b or i in clinicalF:
+				if currFusion[0].split('--')[0][:3] == 'chr':
+					gene1loc = currFusion[0].split('--')[0].split('-')
+					gene1loc[1] = int(gene1loc[1])
+				elif currFusion[0].split('--')[0] not in allGeneLoc: gene1loc = ['chrN', 0]
+				else: gene1loc = allGeneLoc[currFusion[0].split('--')[0]]
+				if currFusion[0].split('--')[1][:3] == 'chr':
+					gene2loc = currFusion[0].split('--')[1].split('-')
+					gene2loc[1] = int(gene1loc[1])
+				elif currFusion[0].split('--')[1] not in allGeneLoc: gene2loc = ['chrN', 0]
+				else: gene2loc = allGeneLoc[currFusion[0].split('--')[1]]
+				if (currFusion[4].split('-')[-3] != currFusion[5].split('-')[-3] or abs(int(currFusion[4].split('-')[-2]) - int(currFusion[5].split('-')[-2])) > args.b or i in clinicalF) and (gene1loc[0]!=gene2loc[0] or (gene1loc[1]-gene2loc[2]>0 and gene2loc[1]-gene1loc[2]>0)):
 					# print(currFusion[0])
 					for j in new_fusions_found[i]['readNames']:
 						readNames[j] = {'fusion': i, **copy.deepcopy(locInfo)}
@@ -775,9 +788,10 @@ if not args.d:
 			if float(temp[-2]) > 0.9:
 				good = False
 				metadata.append([temp[0], 'geneCov', str(temp[-2]), new_fusions_found[fusion2]['readNames']])
-			if freq[temp[0].split("--")[0]] > 2 or freq[temp[0].split("--")[1]] > 2:
-				good = False
-				metadata.append([temp[0], 'repeat', 'r', new_fusions_found[fusion2]['readNames']])
+			if args.w:
+				if freq[temp[0].split("--")[0]] > 2 or freq[temp[0].split("--")[1]] > 2:
+					good = False
+					metadata.append([temp[0], 'repeat', 'r', new_fusions_found[fusion2]['readNames']])
 		# else: good=False
 		# else: print(temp[0], freq[temp[0].split("--")[0]], freq[temp[0].split("--")[1]])
 		if good:
