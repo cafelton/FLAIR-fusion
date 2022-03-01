@@ -353,14 +353,20 @@ if not args.d:
 				if currFusion[0].split('--')[0][:3] == 'chr':
 					gene1loc = currFusion[0].split('--')[0].split('-')
 					gene1loc[1] = int(gene1loc[1])
+					gene1loc.append(gene1loc[1] + args.b)
 				elif currFusion[0].split('--')[0] not in allGeneLoc: gene1loc = ['chrN', 0]
 				else: gene1loc = allGeneLoc[currFusion[0].split('--')[0]]
 				if currFusion[0].split('--')[1][:3] == 'chr':
 					gene2loc = currFusion[0].split('--')[1].split('-')
 					gene2loc[1] = int(gene1loc[1])
+					gene2loc.append(gene2loc[1] + args.b)
 				elif currFusion[0].split('--')[1] not in allGeneLoc: gene2loc = ['chrN', 0]
 				else: gene2loc = allGeneLoc[currFusion[0].split('--')[1]]
-				if (currFusion[4].split('-')[-3] != currFusion[5].split('-')[-3] or abs(int(currFusion[4].split('-')[-2]) - int(currFusion[5].split('-')[-2])) > args.b or i in clinicalF) and (gene1loc[0]!=gene2loc[0] or (gene1loc[1]-gene2loc[2]>0 and gene2loc[1]-gene1loc[2]>0)):
+				if gene1loc[1] > gene2loc[1]:
+                                        temp = gene1loc.copy()
+                                        gene1loc = gene2loc
+                                        gene2loc = temp
+				if (currFusion[4].split('-')[-3] != currFusion[5].split('-')[-3] or abs(int(currFusion[4].split('-')[-2]) - int(currFusion[5].split('-')[-2])) > args.b or i in clinicalF) and (gene1loc[0]!=gene2loc[0] or gene2loc[1]-gene1loc[2]>0):
 					# print(currFusion[0])
 					for j in new_fusions_found[i]['readNames']:
 						readNames[j] = {'fusion': i, **copy.deepcopy(locInfo)}
