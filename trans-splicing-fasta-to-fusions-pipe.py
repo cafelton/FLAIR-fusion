@@ -352,7 +352,8 @@ if not args.d:
 				if not (l[:3] == 'chr' and '-' in l) and l in allGeneLoc:
 					for t in allGeneLoc[l][1:]:
 						if midcov[1] >= t[1]-50 and midcov[2] <= t[2]+50: bestcov.append(float(midcov[0])/(t[2]-t[1]))
-					genecovfinal.append(sum(bestcov)/len(bestcov))
+					if len(bestcov) > 0: genecovfinal.append(sum(bestcov)/len(bestcov))
+					else: genecovfinal.append(0)
 			if max(genecovfinal) > 0.95:
 				metadata.append(['--'.join(list(f)), 'geneCov', max(genecovfinal), list(mappingLocs[f].keys())])
 				continue
