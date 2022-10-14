@@ -536,9 +536,9 @@ if not args.d:
 					fastqdistvsbp[0].append(readfastqdist[r[3].split('--')[0]])
 					fastqdistvsbp[1].append(abs(int(r[trueBreakpoints[r[3].split('--')[1].split('/')[0]][0]])-trueBreakpoints[r[3].split('--')[1].split('/')[0]][1]))
 				currGene = r[3].split('--')[1].split('/')[0]
-				if int(r[1]) > fusionlocbounds[frozenset(line[0].split('--'))][currGene][0] - 150 and int(r[2]) < fusionlocbounds[frozenset(line[0].split('--'))][currGene][1] + 150:
+# 				if int(r[1]) > fusionlocbounds[frozenset(line[0].split('--'))][currGene][0] - 150 and int(r[2]) < fusionlocbounds[frozenset(line[0].split('--'))][currGene][1] + 150:
 					#r[8] = str(int((250/math.log(longestfastqdist[r[3].split('--')[1].split('/')[0]] + 1)) + 5)) + ",0,255"
-					r[3] = '-.-'.join([line[0]] + r[3].split('--')) #+ [str(readfastqdist[r[3].split('--')[0]])])
+				r[3] = '-.-'.join([line[0]] + r[3].split('--')) #+ [str(readfastqdist[r[3].split('--')[0]])])
 					# c += 1
 # 					for x in [1,2]:
 # 						if int(r[x]) == readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][0]:
@@ -557,7 +557,7 @@ if not args.d:
 # 							# if c <= 10: print(tempsizes, tempstarts, r[10:12])
 # 							r[x] = str(readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1])
 # 							r[x+5] = str(readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1])
-					reads.write('\t'.join(r) + '\n')
+				reads.write('\t'.join(r) + '\n')
 	fusions.close()
 	reads.close()
 	# import scipy.stats as sps
