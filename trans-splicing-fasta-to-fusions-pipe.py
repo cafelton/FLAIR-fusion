@@ -540,23 +540,23 @@ if not args.d:
 					#r[8] = str(int((250/math.log(longestfastqdist[r[3].split('--')[1].split('/')[0]] + 1)) + 5)) + ",0,255"
 					r[3] = '-.-'.join([line[0]] + r[3].split('--')) #+ [str(readfastqdist[r[3].split('--')[0]])])
 					# c += 1
-					for x in [1,2]:
-						if int(r[x]) == readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][0]:
-							currdiff = readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1] - int(r[x])
-							tempsizes = r[10].split(',')
-							tempstarts = r[11].split(',')
-							# if c <= 10: print(x, currdiff, tempsizes, tempstarts)
-							if x == 1: #left side of gene
-								tempsizes[0] = str(int(tempsizes[0]) + currdiff)
-								for s in range(1, len(tempstarts)-1):
-									tempstarts[s] = str(int(tempstarts[s]) + currdiff)
-								r[11] = ','.join(tempstarts)
-							elif x == 2: #right side of gene
-								tempsizes[-2] = str(int(tempsizes[-2]) + currdiff)
-							r[10] = ','.join(tempsizes)
-							# if c <= 10: print(tempsizes, tempstarts, r[10:12])
-							r[x] = str(readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1])
-							r[x+5] = str(readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1])
+# 					for x in [1,2]:
+# 						if int(r[x]) == readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][0]:
+# 							currdiff = readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1] - int(r[x])
+# 							tempsizes = r[10].split(',')
+# 							tempstarts = r[11].split(',')
+# 							# if c <= 10: print(x, currdiff, tempsizes, tempstarts)
+# 							if x == 1: #left side of gene
+# 								tempsizes[0] = str(int(tempsizes[0]) + currdiff)
+# 								for s in range(1, len(tempstarts)-1):
+# 									tempstarts[s] = str(int(tempstarts[s]) + currdiff)
+# 								r[11] = ','.join(tempstarts)
+# 							elif x == 2: #right side of gene
+# 								tempsizes[-2] = str(int(tempsizes[-2]) + currdiff)
+# 							r[10] = ','.join(tempsizes)
+# 							# if c <= 10: print(tempsizes, tempstarts, r[10:12])
+# 							r[x] = str(readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1])
+# 							r[x+5] = str(readcorrectedbp[r[3].split('-.-')[1]][r[3].split('-.-')[2].split('/')[0]][1])
 					reads.write('\t'.join(r) + '\n')
 	fusions.close()
 	reads.close()
