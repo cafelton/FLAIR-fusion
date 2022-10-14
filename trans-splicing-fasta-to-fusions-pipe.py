@@ -537,7 +537,7 @@ if not args.d:
 					fastqdistvsbp[1].append(abs(int(r[trueBreakpoints[r[3].split('--')[1].split('/')[0]][0]])-trueBreakpoints[r[3].split('--')[1].split('/')[0]][1]))
 				currGene = r[3].split('--')[1].split('/')[0]
 				if int(r[1]) > fusionlocbounds[frozenset(line[0].split('--'))][currGene][0] - 150 and int(r[2]) < fusionlocbounds[frozenset(line[0].split('--'))][currGene][1] + 150:
-					r[8] = str(int((250/math.log(longestfastqdist[r[3].split('--')[1].split('/')[0]] + 1)) + ",0,255"
+					r[8] = str(int((250/math.log(longestfastqdist[r[3].split('--')[1].split('/')[0]] + 1)))) + ",0,255"
 					r[3] = '-.-'.join([line[0]] + r[3].split('--') + [str(readfastqdist[r[3].split('--')[0]])])
 					# c += 1
 					for x in [1,2]:
