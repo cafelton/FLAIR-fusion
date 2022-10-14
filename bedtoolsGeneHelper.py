@@ -4,7 +4,7 @@ parser.add_argument('-i', '--reads', action='store', dest='i', default="", help=
 args = parser.parse_args()
 
 prev = [""]*12
-with open(args.i, 'r') as inFile, open(args.i.strip('.txt') + '-short.bed', "w") as out:
+with open(args.i, 'r') as inFile, open('.'.join(args.i.split('.')[:-1]) + '-short.bed', "w") as out:
 	for line in inFile:
 		line = line.strip().split('\t')
 		if len(line) > 20:
